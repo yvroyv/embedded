@@ -1,0 +1,82 @@
+;----------------------------------------------------------------------------------
+;-- Company: TUC
+;-- Engineer: Vrouvakis Giannis / Felekis Panagiotis
+;-- 
+;-- Create Date:    10/23/2017 
+;-- Design Name: 	First Milestone 
+;-- Module Name:    InterruptsTimer
+;-- Project Name:   PinBall HRY411
+;-- Target Devices: avr90s8515
+;-- Tool versions:  AVR studio 4.09
+;-- Description:    Interrupt adds Register using delay via Timers 
+
+.include "8515def.inc"
+
+.org $0000
+	rjmp Reset 		; Start vector
+
+.org INT0addr
+	rjmp IntV0 			; INT0 interrupt handler
+
+.org INT1addr
+	rjmp IntV1 			; INT1 interrupt handler
+
+.org OVF0addr		; T/C0 time overflow handler
+	rjmp TimerV0
+
+
+.def TIME=r16
+.def TEMP=r17
+.def TEMP1=r18
+.def SUM=r19
+
+Reset:
+
+	ldi TEMP,low(RAMEND) ; Set stackptr to ram end
+	out SPL,TEMP
+	ldi TEMP, high(RAMEND)	
+	out SPH, TEMP
+
+	ldi TEMP,(1<<INT0)+(1<<INT1) ; int masks 0 and 1 set
+	out GIMSK,TEMP
+	ldi TEMP,$0f ; interrupt t0 and t1 on rising edge only
+	out MCUCR,TEMP
+	ldi TIME,$00 ; Start from 0
+	ldi SUM,0	;start sum from zero
+	sei			;enable interupts
+
+loop:
+	sei
+	rjmp loop		;loop
+	
+
+IntV0:
+	ldi TIME,$80 	; Start from 128. NB!
+	out TCNT0,TIME 	; set Timer/counter also.
+	ldi TEMP,(1<<TOIE0) 	; timer overflow interrupt enable 0
+	out TIMSK,TEMP
+	ldi TEMP,$02 ;	 clock prescaler = clk/8
+	out TCCR0,TEMP
+	ldi	TEMP1,10
+
+	rjmp loop
+
+IntV1:
+	ldi TIME,$0 	; Start from 0. NB!
+	out TCNT0,TIME 	; set Timer/counter also.
+	ldi TEMP,$01 ;	 clock prescaler = clk
+	out TCCR0,TEMP
+	ldi TEMP,(1<<TOIE0) 	; timer overflow interrupt enable 0
+	out TIMSK,TEMP
+	ldi	TEMP1,5
+	rjmp loop
+
+
+TimerV0:
+	out TCNT0,TIME ; reset time
+	ADD SUM,TEMP1 ;ADD to summ
+	ldi TEMP,(0<<TOIE0) 	; timer overflow interrupt not enable 
+	out TIMSK,TEMP
+	ldi TEMP,$00 ;	 stop timer 
+	out TCCR0,TEMP
+	rjmp loop  	;return from interupt
